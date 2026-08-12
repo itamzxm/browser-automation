@@ -59,9 +59,28 @@ node usecase/bilibili/publish.mjs --probe         # 登录取证模式（不发�
 | 字段 | 默认 | 说明 |
 |---|---|---|
 | `browserPath` | 自动探测 Edge | 浏览器可执行文件路径 |
-| `userDataDir` | `output/user-data/` | 用户数据目录；填真实 Edge 目录（如 `C:\Users\<you>\AppData\Local\Microsoft\Edge\User Data`）时自动创建 junction |
-| `port` | `0`（自动选空闲端口） | CDP 调试端口；填固定端口（如 `9222`）则优先 attach 已运行实例 |
+| `userDataDir` | `output/profiles/` | 隔离 profile 根目录（每次启动生成独立子目录） |
+| `port` | `0`（自动选空闲端口） | CDP 调试端口 |
+| `realProfileDomains` | `[]` | **账号类操作白名单**（见下） |
 | `headless` | `false` | 无头模式 |
+
+## 数据目录策略（多 AI 并发安全）
+
+Chromium 规则：**同一用户数据目录同一时刻只允许一个浏览器实例**（SingletonLock）。若所有 AI 共用同一目录，一个 AI 占用浏览器时其他 AI 启动必然失败。本内核按 URL 自动分档：
+
+| 场景 | 行为 |
+|---|---|
+| URL 命中 `realProfileDomains` 白名单（账号类操作，如 `bilibili.com` / `xiaohongshu.com` / `douyin.com`） | 使用**用户真实浏览器数据目录**（自动 junction 绕过 Chromium 默认目录调试限制），共享真实登录态 |
+| 其他所有网站 | 使用**独立隔离 profile**（`output/profiles/<会话>-<随机>/` + 随机端口），多 AI 并行互不冲突 |
+| 显式指定 `realUserDataDir` | 强制使用指定真实目录 |
+
+```js
+// 传入目标 URL，自动选择数据目录策略
+const cfg = loadConfig(undefined, { url: 'https://www.bilibili.com/' });
+// 命中白名单 → 真实目录（共享登录态）；未命中 → 隔离 profile
+```
+
+白名单域名匹配防伪造（`evil-bilibili.com` 不会命中 `bilibili.com`）。白名单场景仍受 Chromium 单实例约束（真实目录同时只允许一个实例），属浏览器硬限制。
 
 ## 说明
 

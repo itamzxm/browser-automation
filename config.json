@@ -1,8 +1,9 @@
 {
   "browserPath": "",
-  "userDataDir": "output/user-data/",
-  "port": 9222,
+  "userDataDir": "output/profiles/",
+  "port": 0,
   "cookiesDir": "output/cookies/",
   "timeoutMs": 30000,
-  "headless": false
+  "headless": false,
+  "realProfileDomains": ["bilibili.com", "xiaohongshu.com", "douyin.com"]
 }

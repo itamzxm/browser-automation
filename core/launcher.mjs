@@ -17,13 +17,28 @@ const DEFAULTS = {
   cookiesDir: 'output/cookies/',
   timeoutMs: 30000,
   headless: false,
+  realProfileDomains: [],
 };
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export function loadConfig(configPath = path.join(PROJECT_ROOT, 'config.json')) {
+export const EDGE_DEFAULT_USER_DATA = path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'Edge', 'User Data');
+
+// 域名是否命中"真实 profile 白名单"（账号类操作：小红书/B站/抖音等，用用户真实登录态）
+export function matchRealProfileDomain(url, domains) {
+  if (!domains || domains.length === 0) return false;
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return domains.some((d) => host === d || host.endsWith('.' + d));
+}
+
+export function loadConfig(configPath = path.join(PROJECT_ROOT, 'config.json'), opts = {}) {
   let cfg = {};
   if (fs.existsSync(configPath)) {
     try {
@@ -33,8 +48,23 @@ export function loadConfig(configPath = path.join(PROJECT_ROOT, 'config.json')) 
     }
   }
   cfg = { ...DEFAULTS, ...cfg };
-  cfg.userDataDir = path.resolve(PROJECT_ROOT, cfg.userDataDir);
   cfg.cookiesDir = path.resolve(PROJECT_ROOT, cfg.cookiesDir);
+
+  // 数据目录策略（优先级从高到低）：
+  // 1. opts.realUserDataDir 显式指定 → 用用户真实目录（junction 方案）
+  // 2. opts.url 命中 realProfileDomains 白名单 → 用用户真实目录（账号类操作共享登录态）
+  // 3. 默认 → 独立隔离 profile（多 AI 并行互不冲突）
+  const useReal = !!opts.realUserDataDir
+    || (opts.url && matchRealProfileDomain(opts.url, cfg.realProfileDomains));
+  if (useReal) {
+    cfg.userDataDir = opts.realUserDataDir || EDGE_DEFAULT_USER_DATA;
+  } else {
+    const base = path.isAbsolute(cfg.userDataDir)
+      ? cfg.userDataDir
+      : path.resolve(PROJECT_ROOT, cfg.userDataDir);
+    const stamp = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    cfg.userDataDir = path.join(base, `${opts.profile || 'session'}-${stamp}`);
+  }
   return cfg;
 }
 
@@ -364,7 +394,7 @@ export class Browser {
   }
 }
 
-export async function launchEdge(cfg = loadConfig(), { keepAlive = false } = {}) {
+export async function launchEdge(cfg = loadConfig(), { keepAlive = false, attachPort = 0 } = {}) {
   const browserPath = detectBrowserPath(cfg);
   const log = getLogger();
   let port = cfg.port;
@@ -372,11 +402,12 @@ export async function launchEdge(cfg = loadConfig(), { keepAlive = false } = {})
   const realUserDataDir = cfg.userDataDir;
   const effectiveUserDataDir = await ensureNonDefaultUserDataDir(realUserDataDir, log);
 
-  if (port !== 0) {
-    const version = await fetchVersion(port);
+  // 仅显式要求 attach 时才连接已有实例（attachPort > 0）；默认端口随机、绝不误连其他 AI 的实例
+  if (attachPort > 0) {
+    const version = await fetchVersion(attachPort);
     if (version) {
-      log.info('launcher', `复用已有浏览器实例: 端口=${port}, 协议版本=${version['Protocol-Version']}`);
-      const b = new Browser({ cfg, port, wsUrl: version.webSocketDebuggerUrl, proc: null, userDataDir: realUserDataDir });
+      log.info('launcher', `复用已有浏览器实例: 端口=${attachPort}, 协议版本=${version['Protocol-Version']}`);
+      const b = new Browser({ cfg, port: attachPort, wsUrl: version.webSocketDebuggerUrl, proc: null, userDataDir: realUserDataDir });
       await b.connect();
       await b.ensureInitialPage();
       return b;
@@ -420,7 +451,6 @@ export async function launchEdge(cfg = loadConfig(), { keepAlive = false } = {})
   return b;
 }
 
-const EDGE_DEFAULT_USER_DATA = path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'Edge', 'User Data');
 const JUNCTION_DIR = path.join(PROJECT_ROOT, 'output', 'edge-profile-junction');
 
 async function ensureNonDefaultUserDataDir(userDataDir, log) {

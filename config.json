@@ -1,0 +1,8 @@
+{
+  "browserPath": "",
+  "userDataDir": "output/user-data/",
+  "port": 9222,
+  "cookiesDir": "output/cookies/",
+  "timeoutMs": 30000,
+  "headless": false
+}

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>冒烟测试页</title>
+<style>
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; margin: 20px; background: #fafafa; }
+  h1 { color: #333; }
+  .card { border: 1px solid #d0d0d0; border-radius: 8px; padding: 16px; margin-bottom: 16px; background: #fff; }
+  .card h2 { margin-top: 0; font-size: 16px; }
+  #img-placeholder { width: 200px; height: 150px; background: linear-gradient(135deg, #4a90d9, #8e6fd9); color: #fff; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+  #tall { height: 900px; background: #f0f4f8; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #888; }
+  #echo, #textarea-echo { margin-top: 8px; color: #2a7; }
+  #click-result { margin-left: 12px; color: #888; }
+  input, textarea { width: 60%; padding: 6px; }
+</style>
+</head>
+<body>
+<h1>冒烟测试页</h1>
+<div class="card" id="click-card">
+  <h2>点击区</h2>
+  <button id="btn" data-before="0">点我</button>
+  <span id="click-result">未点击</span>
+</div>
+<div class="card" id="input-card">
+  <h2>输入区</h2>
+  <input id="input" placeholder="输入文本">
+  <div id="echo"></div>
+</div>
+<div class="card" id="textarea-card">
+  <h2>多行输入</h2>
+  <textarea id="textarea" rows="3"></textarea>
+  <div id="textarea-echo"></div>
+</div>
+<div class="card" id="list-card">
+  <h2>列表区</h2>
+  <ul id="list">
+    <li>第一项</li>
+    <li>第二项</li>
+    <li>第三项</li>
+  </ul>
+</div>
+<div class="card" id="progress-card">
+  <h2>加载进度区</h2>
+  <div id="progress-text"></div>
+</div>
+<div class="card" id="dynamic-card">
+  <h2>动态区</h2>
+  <div id="dynamic-text">等待中...</div>
+</div>
+<div class="card" id="late-card">
+  <h2>延迟区</h2>
+  <div id="late" style="display:none">延迟渲染的元素</div>
+</div>
+<div class="card" id="image-card">
+  <h2>图片区</h2>
+  <div id="img-placeholder">图片占位 200×150</div>
+</div>
+<div class="card">
+  <h2>长内容区</h2>
+  <div id="tall">用于整页截图的加长内容</div>
+</div>
+<script>
+  const btn = document.getElementById('btn');
+  btn.addEventListener('click', () => {
+    btn.dataset.clicked = 'yes';
+    document.getElementById('click-result').textContent = '已点击';
+  });
+  let dots = 0;
+  const prog = setInterval(() => {
+    dots += 1;
+    document.getElementById('progress-text').textContent = '加载中' + '.'.repeat(dots);
+    if (dots >= 40) clearInterval(prog);
+  }, 100);
+  const input = document.getElementById('input');
+  input.addEventListener('input', () => {
+    document.getElementById('echo').textContent = '回显: ' + input.value;
+  });
+  const ta = document.getElementById('textarea');
+  ta.addEventListener('input', () => {
+    document.getElementById('textarea-echo').textContent = '回显: ' + ta.value;
+  });
+  setTimeout(() => {
+    document.getElementById('dynamic-text').textContent = '动态文本已写入';
+  }, 2000);
+  setTimeout(() => {
+    document.getElementById('late').style.display = 'block';
+  }, 3000);
+</script>
+</body>
+</html>
